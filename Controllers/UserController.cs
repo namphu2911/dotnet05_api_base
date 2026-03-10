@@ -16,9 +16,11 @@ namespace dotnet05_api_base.Controllers
     public class UserController : ControllerBase
     {
         private readonly CybersoftMarketplaceContext _context;
-        public UserController(CybersoftMarketplaceContext context)
+        private readonly IJwtAuthService _jwtAuthService;
+        public UserController(CybersoftMarketplaceContext context, IJwtAuthService jwtAuthService)
         {
             _context = context;
+            _jwtAuthService = jwtAuthService;
         }
 
 
@@ -185,7 +187,35 @@ namespace dotnet05_api_base.Controllers
                 return StatusCode(500, new { message = "An error occurred while updating user information.", error = ex.Message });
             }
         }
- 
+        // api đăng nhập 
+        [HttpPost("Login")]
+
+        public async Task<IActionResult> Login([FromBody] UserLoginDTO loginDTO) // nhận vào thông tin đăng nhập (username, password)
+        {
+
+            // kiểm tra xem username có tồn tại trong csdl không
+            var user = await _context.Users.FirstOrDefaultAsync(
+                n => n.Username == loginDTO.UserName && n.Deleted != true
+            );
+            // có user thì kiểm tra password, không có user thì trả về lỗi
+            if (user == null)
+            {
+                return NotFound(new { message = "User not found" });
+            }
+            // sai pass
+            if (user.PasswordHash != loginDTO.Password)
+            {
+                return BadRequest(new { message = "Incorrect password" });
+            }
+            // đăng nhập thành công
+            // tạo token  jwt
+            var token = await _jwtAuthService.GenerateToken(user);
+
+
+            return Ok(new { message = "Login successful", token });
+        }
+
+
 
     }
 }
