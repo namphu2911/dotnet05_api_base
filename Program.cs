@@ -9,6 +9,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddMemoryCache();
 
 //DI Services swagger
 builder.Services.AddEndpointsApiExplorer();
@@ -57,8 +58,15 @@ builder.Services.AddDbContext<CybersoftMarketplaceContext>();
 builder.Services.AddScoped<IJwtAuthService, JwtAuthService>();
 
 
+// DI service custom middleware BlockIpMiddleware
+builder.Services.AddTransient<BlockIpMiddleware>();
+
 //DI service controller 
-builder.Services.AddControllers()
+builder.Services.AddControllers(otp =>
+{
+    otp.Filters.Add<ExceptionFilter>(); // thêm filter để xử lý lỗi toàn cục, bắt tất cả lỗi phát sinh trong controller và trả về lỗi theo format chuẩn
+
+})
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.PropertyNamingPolicy =
@@ -91,9 +99,9 @@ builder.Services.AddCors(options =>
 
 // AUTHEN, AUTHO : Xác thực và phân quyền người dùng 
 //Thêm middleware authentication
-var privateKey = builder.Configuration["jwt:Serect-Key"];
-var Issuer = builder.Configuration["jwt:Issuer"];
-var Audience = builder.Configuration["jwt:Audience"];
+var privateKey = builder.Configuration["Jwt:Serect-Key"];
+var Issuer = builder.Configuration["Jwt:Issuer"];
+var Audience = builder.Configuration["Jwt:Audience"];
 // Thêm dịch vụ Authentication vào ứng dụng, sử dụng JWT Bearer làm phương thức xác thực
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options =>
 {
@@ -122,6 +130,11 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
 });
 // Thêm dịch vụ Authorization để hỗ trợ phân quyền người dùng
 builder.Services.AddAuthorization();
+
+
+
+// DI service filter
+builder.Services.AddScoped<SimpleCacheFilter>(); // nếu có DI thì sử dụng ServiceFilter, nếu không có DI thì sử dụng TypeFilter để inject service vào filter
 
 var app = builder.Build();
 
@@ -154,6 +167,10 @@ app.UseExceptionHandler(er =>
         await context.Response.WriteAsync(jsonRes);
     });
 });
+
+
+// custom middleware : chặn ip gửi quá nhiều request trong 1 khoảng thời gian ngắn (BlockIpMiddleware)
+// app.UseMiddleware<BlockIpMiddleware>();
 
 //CORS MIDDLEWARE ---> (THIẾT LẬP CHÍNH SÁCH CORS)
 // CORS (Cross-Origin Resource Sharing) : Cơ chế bảo mật của trình duyệt, ngăn chặn các request từ domain khác (origin khác) trừ khi server cho phép
@@ -208,6 +225,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 app.UseAuthentication();
+app.UseAuthorization();
 
 app.UseHttpsRedirection();
 //Sử dụng middleware map controller

@@ -7,20 +7,51 @@ http context
 
 -  "trung tâm kết nối client và server"
 */
+
+/*
+AUTHEN: xác thực danh tính  
+VD : có thẻ nhân viên sẽ qua được cổng bảo vệ
+Mã lỗi :L 401
+
+
+AUTHOR: phân quyền người dùng -> bạn được phép làm gì
+vd: có thẻ nhân viên, nhưng chỉ được vào khu vực văn phòng, không được vào kho hàng
+mãz lỗi : 403
+
+
+
+
+tạo tk nhận mk -> 123456 ->  băm  => mk đã băm
+
+đăng nhập -> 123456 -> băm -> so sánh mk đã băm với mk đã lưu trong csdl -> nếu trùng khớp thì đăng nhập thành công, ngược lại thất bại
+
+
+*/
 namespace dotnet05_api_base.Controllers
 {
     using System.Text;
     using System.Text.Json;
+    using dotnet05_api_base.Models;
     using Microsoft.AspNetCore.Authorization;
     using Microsoft.AspNetCore.Mvc;
+    using Microsoft.AspNetCore.OutputCaching;
+    using Microsoft.EntityFrameworkCore;
+    using Microsoft.Extensions.Caching.Memory;
 
     [Route("api/[controller]")]
     [ApiController]
     // [Authorize]
     // 
-    public class TestController : ControllerBase
+    public class TestController(CybersoftMarketplaceContext context,IMemoryCache _cache) : ControllerBase
     {
         [HttpGet]
+        // [Authorize]/* chỉ cần xác minh thôi có token hợp lệ là dc*/
+        // [Authorize(Roles = "ADMIN")]/* ngoài việc xác minh token hợp lệ, còn phải kiểm tra role trong token có phải là admin hay không*/
+        // [Authorize(Roles = "ADMIN, USER")]/* ngoài việc xác minh token hợp lệ, còn phải kiểm tra role trong token có phải là admin/ user hay không*/
+
+
+// dùng filter
+[TypeFilter(typeof(AuthorFilter))]// dùng filter để kiểm tra role ADMIN mà không cần phải thêm nhiều attribute Authorize ở các controller khác nhau
         public async Task<IActionResult> Get()
         {
             return Ok(new { Message = "Hello from TestController!" });
@@ -31,6 +62,7 @@ namespace dotnet05_api_base.Controllers
         // ?name tương ứng với [FromQuery] string name : api/test/123?name=abc
         public async Task<IActionResult> Get(int id, string name, [FromHeader] string token)
         {
+
             // Lấy thông tin từ http context
             var routeId = HttpContext.Request.RouteValues["id"];
             var queryName = HttpContext.Request.Query["name"];
@@ -94,5 +126,108 @@ namespace dotnet05_api_base.Controllers
             var result = a / b; // nếu b = 0 sẽ lỗi 500
             return Ok(new { result });
         }
+
+
+
+        // hàm thực thi test action filter
+        [HttpGet("action-filter")]
+        [TypeFilter(typeof(LogActionFilter))]// dùng service filter để inject service vào filter
+        public async Task<IActionResult> Log()
+        {
+            // mô phỏng công việc tốn thời gian
+            Console.WriteLine("-----  Thực thi action method ----------");
+            await Task.Delay(1000);
+
+            return Ok(new { Message = "This action is decorated with LogActionFilter." });
+        }
+
+        // hàm thực thi test exception filter
+        [HttpGet("exception-filter")]
+        [TypeFilter(typeof(ExceptionFilter))]// dùng service filter để inject service vào filter
+        public async Task<IActionResult> Exception()
+        {
+            // mô phỏng lỗi
+            throw new Exception("Đây là lỗi được ném ra từ action method.");
+        }
+
+        // hàm thực thi test resource filter (simple cache filter)
+        [HttpGet("thongke/{id}")]
+        [TypeFilter(typeof(SimpleCacheFilter))]// dùng service filter để inject service vào filter
+        public async Task<IActionResult> ThongKe(int id)
+        {
+            // mô phỏng công việc tốn thời gian (vd: truy vấn csdl, tính toán, v.v.)
+            Console.WriteLine($"-----  Thực thi action method thống kê  cho id = {id} ----------");
+            // giả sử lấy ra product id
+            var res = await context.Products.FindAsync(id);
+            return Ok(res);
+        }
+
+        // output cáche
+        [HttpGet("output-cache")]
+        [OutputCache(Duration = 30)]// cache response trong 30s, nếu có request giống hệt trong 30s thì sẽ trả về response đã cache mà không cần phải thực thi action method
+        public async Task<IActionResult> GetOutputCache(string name)
+        {
+            Console.WriteLine($"-----  Thực thi action method GetOutputCache cho id = {name} ----------");
+            var cacheKey = $"GetOutputCache_{name}";
+            if (_cache.TryGetValue(cacheKey, out List<Product> cachedProducts))
+            {
+                return Ok(cachedProducts);
+            }
+            var res = await context.Products.Where(x => x.Name.Contains(name)).ToListAsync();
+
+            _cache.Set(cacheKey, res, TimeSpan.FromSeconds(30));
+            return Ok(res);
+        }
+
+/*
+vd api : api/product/5
+UseRouting() nhận request → tìm controller khớp với `api/product/{id}`
+
+→ `UseEndpoints()` thực thi `GetById(5)`
+
+→ Trả về response.
+
+*/
+
+
+// THỨ TỰ
+/*
+
+app.UseRouting();
+app.UseCors();
+app.UseAuthentication();
+app.UseAuthorization();
+app.UseEndpoints(...);
+
+
+
+*/
+
+
+// thứ tự chạy của filter
+/*
+middlewaree
+⬇
+authorization filter (AuthorFilter)
+⬇
+resource filter (SimpleCacheFilter) 
+⬇
+model binding (lấy dữ liệu từ route, query, header, body, v.v.
+⬇
+action filter (LogActionFilter) 
+⬇
+Thực thi action method (vd: GetById(5))
+⬇
+action filter (ActionExecuted)
+⬇
+result filter (ResultFilter)
+⬇
+resource filter (excuted) 
+
+
+
+
+
+*/
     }
 }

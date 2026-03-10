@@ -41,6 +41,7 @@ namespace dotnet05_api_base.Controllers
         [HttpPost("CreateUser")]
         public async Task<IActionResult> CreateUser([FromBody] UserCreateDTO userDTO)
         {
+            var passHash = BCrypt.Net.BCrypt.HashPassword(userDTO.Password,12); // Mã hóa password với salt 12 rounds
 
             User newUser = new User
             {
@@ -50,7 +51,7 @@ namespace dotnet05_api_base.Controllers
                 Email = userDTO.Email,
                 Phone = userDTO.Phone,
                 Avatar = userDTO.Avatar,
-                PasswordHash = "123",
+                PasswordHash = passHash,
                 // Address = userDTO.Address,
                 CreatedAt = DateTime.UtcNow,
                 Deleted = false
@@ -203,7 +204,12 @@ namespace dotnet05_api_base.Controllers
                 return NotFound(new { message = "User not found" });
             }
             // sai pass
-            if (user.PasswordHash != loginDTO.Password)
+            // if (user.PasswordHash != loginDTO.Password)
+            // {
+            //     return BadRequest(new { message = "Incorrect password" });
+            // }
+            // kiểm tra pass với bcrypt
+            if(!BCrypt.Net.BCrypt.Verify(loginDTO.Password, user.PasswordHash))
             {
                 return BadRequest(new { message = "Incorrect password" });
             }
