@@ -162,23 +162,6 @@ namespace dotnet05_api_base.Controllers
             return Ok(res);
         }
 
-        // output cáche
-        [HttpGet("output-cache")]
-        [OutputCache(Duration = 30)]// cache response trong 30s, nếu có request giống hệt trong 30s thì sẽ trả về response đã cache mà không cần phải thực thi action method
-        public async Task<IActionResult> GetOutputCache(string name)
-        {
-            Console.WriteLine($"-----  Thực thi action method GetOutputCache cho id = {name} ----------");
-            var cacheKey = $"GetOutputCache_{name}";
-            if (_cache.TryGetValue(cacheKey, out List<Product> cachedProducts))
-            {
-                return Ok(cachedProducts);
-            }
-            var res = await context.Products.Where(x => x.Name.Contains(name)).ToListAsync();
-
-            _cache.Set(cacheKey, res, TimeSpan.FromSeconds(30));
-            return Ok(res);
-        }
-
 /*
 vd api : api/product/5
 UseRouting() nhận request → tìm controller khớp với `api/product/{id}`

@@ -7,9 +7,9 @@ using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using StackExchange.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.Services.AddMemoryCache();
 
 //DI Services swagger
 builder.Services.AddEndpointsApiExplorer();
@@ -135,6 +135,31 @@ builder.Services.AddAuthorization();
 
 // DI service filter
 builder.Services.AddScoped<SimpleCacheFilter>(); // nếu có DI thì sử dụng ServiceFilter, nếu không có DI thì sử dụng TypeFilter để inject service vào filter
+
+// Đăng kí sử dụng IMemoryCache
+builder.Services.AddMemoryCache();
+
+// DI Redis
+builder.Services.AddStackExchangeRedisCache( otp =>
+{
+    otp.Configuration = "localhost:6379"; // redis không có pass
+    // otp.Configuration = "sa:123456@localhost:6379"; // redis có pass sa là username, 123456 là password
+    otp.InstanceName = "Demo_"; // tiền tố cho tất cả key lưu trong redis, giúp phân biệt với các ứng dụng khác cùng sử dụng redis
+    // C2 dùng url trong appseting
+// otp.Configuration = builder.Configuration["Redis:Configuration"];
+});
+
+// Redis helper
+builder.Services.AddScoped<RedisHelper>();
+builder.Services.AddScoped<IConnectionMultiplexer>(sp =>
+{
+    var conf = "localhost:6379";
+    return ConnectionMultiplexer.Connect(conf);
+});
+
+// DI AutoMapper
+builder.Services.AddAutoMapper(a => {}, typeof(EntityMapper)); // Đăng ký AutoMapper và chỉ định lớp
+
 
 var app = builder.Build();
 
