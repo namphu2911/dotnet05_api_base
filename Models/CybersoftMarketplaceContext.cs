@@ -45,6 +45,8 @@ public partial class CybersoftMarketplaceContext : DbContext
 
     public virtual DbSet<User> Users { get; set; }
 
+    public virtual DbSet<UserRole> UserRoles { get; set; }
+
     public virtual DbSet<VGetAllProductsDetail> VGetAllProductsDetails { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
@@ -276,19 +278,18 @@ public partial class CybersoftMarketplaceContext : DbContext
             entity.Property(e => e.Username).HasMaxLength(100);
 
             entity.HasMany(d => d.Roles).WithMany(p => p.Users)
-                .UsingEntity<Dictionary<string, object>>(
-                    "UserRole",
-                    r => r.HasOne<Role>().WithMany()
-                        .HasForeignKey("RoleId")
+                .UsingEntity<UserRole>(
+                    r => r.HasOne<Role>(ur => ur.Role).WithMany()
+                        .HasForeignKey(ur => ur.RoleId)
                         .OnDelete(DeleteBehavior.ClientSetNull)
                         .HasConstraintName("FK_UserRoles_Roles"),
-                    l => l.HasOne<User>().WithMany()
-                        .HasForeignKey("UserId")
+                    l => l.HasOne<User>(ur => ur.User).WithMany()
+                        .HasForeignKey(ur => ur.UserId)
                         .OnDelete(DeleteBehavior.ClientSetNull)
                         .HasConstraintName("FK_UserRoles_Users"),
                     j =>
                     {
-                        j.HasKey("UserId", "RoleId");
+                        j.HasKey(ur => new { ur.UserId, ur.RoleId });
                         j.ToTable("UserRoles");
                     });
         });

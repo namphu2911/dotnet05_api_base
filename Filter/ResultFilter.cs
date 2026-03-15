@@ -1,0 +1,1 @@
+//  tưongw tự như actioc, như các excuted can thiêtjp vào result của action method để trả về client, nhưng có thể can thiệp vào kết quả trả về của action method (vd: thay đổi status code, thay đổi body, v.v.) trước khi gửi response về client

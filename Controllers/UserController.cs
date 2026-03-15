@@ -16,9 +16,11 @@ namespace dotnet05_api_base.Controllers
     public class UserController : ControllerBase
     {
         private readonly CybersoftMarketplaceContext _context;
-        public UserController(CybersoftMarketplaceContext context)
+        private readonly IJwtAuthService _jwtAuthService;
+        public UserController(CybersoftMarketplaceContext context, IJwtAuthService jwtAuthService)
         {
             _context = context;
+            _jwtAuthService = jwtAuthService;
         }
 
 
@@ -39,6 +41,7 @@ namespace dotnet05_api_base.Controllers
         [HttpPost("CreateUser")]
         public async Task<IActionResult> CreateUser([FromBody] UserCreateDTO userDTO)
         {
+            var passHash = BCrypt.Net.BCrypt.HashPassword(userDTO.Password, 12); // Mã hóa password với salt 12 rounds
 
             User newUser = new User
             {
@@ -48,7 +51,7 @@ namespace dotnet05_api_base.Controllers
                 Email = userDTO.Email,
                 Phone = userDTO.Phone,
                 Avatar = userDTO.Avatar,
-                PasswordHash = "123",
+                PasswordHash = passHash,
                 // Address = userDTO.Address,
                 CreatedAt = DateTime.UtcNow,
                 Deleted = false
@@ -185,7 +188,41 @@ namespace dotnet05_api_base.Controllers
                 return StatusCode(500, new { message = "An error occurred while updating user information.", error = ex.Message });
             }
         }
- 
+        // api đăng nhập 
+        [HttpPost("Login")]
+
+        public async Task<IActionResult> Login([FromBody] UserLoginDTO loginDTO) // nhận vào thông tin đăng nhập (username, password)
+        {
+
+            // kiểm tra xem username có tồn tại trong csdl không
+            var user = await _context.Users.FirstOrDefaultAsync(
+                n => n.Username == loginDTO.UserName && n.Deleted != true
+            );
+            // có user thì kiểm tra password, không có user thì trả về lỗi
+            if (user == null)
+            {
+                return NotFound(new { message = "User not found" });
+            }
+            // sai pass
+            // if (user.PasswordHash != loginDTO.Password)
+            // {
+            //     return BadRequest(new { message = "Incorrect password" });
+            // }
+            // kiểm tra pass với bcrypt
+            if (!BCrypt.Net.BCrypt.Verify(loginDTO.Password, user.PasswordHash))
+            {
+                return BadRequest(new { message = "Incorrect password" });
+            }
+            // đăng nhập thành công
+            // tạo token  jwt
+            var token = await _jwtAuthService.GenerateToken(user);
+
+
+            return Ok(new { message = "Login successful", token });
+        }
+
+
+
     }
 }
 
