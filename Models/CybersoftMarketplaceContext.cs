@@ -23,6 +23,8 @@ public partial class CybersoftMarketplaceContext : DbContext
 
     public virtual DbSet<Conversation> Conversations { get; set; }
 
+    public virtual DbSet<Customer> Customers { get; set; }
+
     public virtual DbSet<Message> Messages { get; set; }
 
     public virtual DbSet<Order> Orders { get; set; }
@@ -42,6 +44,8 @@ public partial class CybersoftMarketplaceContext : DbContext
     public virtual DbSet<Shop> Shops { get; set; }
 
     public virtual DbSet<User> Users { get; set; }
+
+    public virtual DbSet<VGetAllProductsDetail> VGetAllProductsDetails { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         => optionsBuilder.UseSqlServer("Name=DBConnectionstring");
@@ -102,6 +106,24 @@ public partial class CybersoftMarketplaceContext : DbContext
                 .HasForeignKey(d => d.ShopId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_Conversations_Shops");
+        });
+
+        modelBuilder.Entity<Customer>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PK__CUSTOMER__3213E83F7F9AFA36");
+
+            entity.ToTable("CUSTOMER");
+
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.Alias)
+                .HasMaxLength(50)
+                .HasColumnName("alias");
+            entity.Property(e => e.City).HasMaxLength(50);
+            entity.Property(e => e.DateCreate)
+                .HasDefaultValueSql("(getdate())")
+                .HasColumnType("datetime");
+            entity.Property(e => e.Deleted).HasDefaultValue(false);
+            entity.Property(e => e.Name).HasMaxLength(50);
         });
 
         modelBuilder.Entity<Message>(entity =>
@@ -269,6 +291,17 @@ public partial class CybersoftMarketplaceContext : DbContext
                         j.HasKey("UserId", "RoleId");
                         j.ToTable("UserRoles");
                     });
+        });
+
+        modelBuilder.Entity<VGetAllProductsDetail>(entity =>
+        {
+            entity
+                .HasNoKey()
+                .ToView("v_getAllProductsDetail");
+
+            entity.Property(e => e.ProductName).HasMaxLength(200);
+            entity.Property(e => e.ProductVariantName).HasMaxLength(200);
+            entity.Property(e => e.ShopName).HasMaxLength(200);
         });
 
         OnModelCreatingPartial(modelBuilder);

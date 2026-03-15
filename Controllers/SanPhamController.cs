@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using dotnet05_api_base.Models;
 using Microsoft.AspNetCore.Mvc;
 //using dotnet05_api_base.Models;
 
@@ -108,5 +109,8 @@ namespace dotnet05_api_base.Controllers
             }
             return BadRequest("Mã sản phẩm không tồn tại !");
         }
+
+
+       
     }
 }

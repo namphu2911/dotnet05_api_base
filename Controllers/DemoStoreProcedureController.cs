@@ -38,7 +38,7 @@ namespace dotnet05_api_base.Controllers
         [HttpPost("AddUserDynamicStoreProcedure")]
         public async Task<IActionResult> AddUserDynamicStoreProcedure([FromBody] UserCreateStoreDTO userCreateStoreDTO)
         {
-           
+
             string res = InsertStoreProcedure<UserCreateStoreDTO>(userCreateStoreDTO);
 
             return Ok(res);
@@ -63,7 +63,7 @@ namespace dotnet05_api_base.Controllers
 
             //List giá trị tương ứng
             List<string> columnValues = new List<string>();
-            
+
             foreach (PropertyInfo prop in properties)
             {
 
@@ -77,7 +77,7 @@ namespace dotnet05_api_base.Controllers
                     columnValues.Add($"{value}");
                 }
             }
-       
+
             //Gọi stored procedure insert
             // EXEC InsertDynamicData_JSON @TableName, @Columns, @ValuesJSON;
             SqlParameter tableNameParam = new SqlParameter("@TableName", System.Data.SqlDbType.NVarChar, 128)
@@ -87,7 +87,7 @@ namespace dotnet05_api_base.Controllers
 
             SqlParameter columnsParam = new SqlParameter("@Columns", System.Data.SqlDbType.NVarChar, 200)
             {
-                Value = columnNames 
+                Value = columnNames
             };
 
             SqlParameter columnsValuesParam = new SqlParameter("@ValuesJSON", System.Data.SqlDbType.NVarChar, 200)
@@ -95,20 +95,39 @@ namespace dotnet05_api_base.Controllers
                 Value = JsonSerializer.Serialize(columnValues)
             };
 
-
-
-
             var sql = $"EXEC InsertDynamicData_JSON @TableName, @Columns, @ValuesJSON";
-            int res =  _context.Database.ExecuteSqlRaw(sql, tableNameParam, columnsParam, columnsValuesParam);
+            int res = _context.Database.ExecuteSqlRaw(sql, tableNameParam, columnsParam, columnsValuesParam);
             Console.WriteLine($@"{tableName} - {columnNames} - {columnValues}");
             string kq = $@"{tableName} - {columnNames} - {JsonSerializer.Serialize(columnValues)}";
             return kq;
         }
 
-   
 
+
+        //Kết nối view 
+        [HttpGet("getProductById/{idProduct}")]
+        public IActionResult getProductById([FromRoute] int idProduct)
+        {
+            var res = _context.VGetAllProductsDetails.Where(item => item.ProductId == idProduct).ToList();
+            return Ok(new { message = "Thành công", data = res });
+        }
+
+
+        [HttpGet("getAllUserFromFunctionSQL")]
+        public IActionResult getAllUserFromFunctionSQL()
+        {
+            //sql gọi function: select * from dbo.[function_name]()
+            string sqlRaw = "SELECT * FROM dbo.GetAllUserWithEmailFullNamePhone()";
+            List<UserFunctionDTO> res = _context.Database.SqlQueryRaw<UserFunctionDTO>(sqlRaw).ToList();
+            return Ok(new { message = "Thành công", data = res });
+        }
     }
-
+    class UserFunctionDTO
+    {
+        public string email { get; set; }
+        public string fullName { get; set; }
+        public string phone { get; set; }
+    }
 
 }
 
